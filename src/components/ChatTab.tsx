@@ -1,16 +1,12 @@
 import React, { useState, useRef, useEffect } from 'react';
 import { 
   Send, 
-  Volume2, 
-  VolumeX, 
-  Copy, 
-  Check, 
   ShieldAlert, 
   Trash2,
-  HelpCircle
+  Sparkles
 } from 'lucide-react';
 import { ChatMessage, Language } from '../types';
-import { queryPanatagAI, speakOfflineText, stopSpeaking } from '../services/panatagAiEngine';
+import { queryPanatagAI } from '../services/panatagAiEngine';
 
 interface ChatTabProps {
   language: Language;
@@ -22,7 +18,7 @@ const INITIAL_MESSAGES: Record<Language, ChatMessage[]> = {
     {
       id: 'init-1',
       sender: 'panatag',
-      text: `👋 **Kumusta! Ako si Panatag**, ang iyong offline Philippine Disaster Buddy.\n\nKahit mawalan ng internet o kuryente sa gitna ng bagyo o lindol, naririto ako upang magbigay ng agarang gabay sa kaligtasan, first aid, evacuation, at mga numero ng saklolo.\n\nI-type sa ibaba ang iyong tanong o sitwasyon para sa agarang tulong.`,
+      text: `👋 **Kumusta! Ako si Panatag**, ang iyong offline Philippine Disaster Buddy.\n\nKahit mawalan ng internet, kuryente, o signal sa gitna ng bagyo o lindol, naririto ako upang magbigay ng agarang gabay sa kaligtasan, first aid, evacuation, at mga numero ng saklolo.\n\nI-type sa ibaba ang iyong tanong o emergency na sitwasyon para sa agarang tulong.`,
       timestamp: Date.now(),
       offlineGenerated: true,
       suggestedActions: [
@@ -32,8 +28,8 @@ const INITIAL_MESSAGES: Record<Language, ChatMessage[]> = {
         'Baha at Leptospirosis (Doxycycline)',
         'Kagat ng aso (Rabies First Aid)',
         'Sunog sa mantika (Bawal ang tubig)',
-        'Paano i-deploy sa Cloudflare Pages?',
-        'Gemma 4-E2B LiteRT-LM model info'
+        'Emergency Hotlines sa Pilipinas',
+        'Paano i-deploy sa Cloudflare Pages?'
       ]
     }
   ],
@@ -50,7 +46,7 @@ const INITIAL_MESSAGES: Record<Language, ChatMessage[]> = {
         'What goes inside a 72-hr Go-Bag?',
         'How to stop severe bleeding',
         'Philippine Emergency Hotlines',
-        'Volcano Ashfall respiratory safety'
+        'How to deploy to Cloudflare Pages?'
       ]
     }
   ],
@@ -87,8 +83,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
 
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
-  const [speakingId, setSpeakingId] = useState<string | null>(null);
-  const [copiedId, setCopiedId] = useState<string | null>(null);
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
@@ -134,34 +128,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
 
         setMessages((prev) => [...prev, botMessage]);
         setIsTyping(false);
-      }, 250);
+      }, 200);
     } catch (err) {
       console.error(err);
       setIsTyping(false);
     }
   };
 
-  const handleSpeak = (msg: ChatMessage) => {
-    if (speakingId === msg.id) {
-      stopSpeaking();
-      setSpeakingId(null);
-    } else {
-      const success = speakOfflineText(msg.text, language);
-      if (success) {
-        setSpeakingId(msg.id);
-      }
-    }
-  };
-
-  const handleCopy = (msg: ChatMessage) => {
-    navigator.clipboard?.writeText(msg.text);
-    setCopiedId(msg.id);
-    setTimeout(() => setCopiedId(null), 2000);
-  };
-
   const handleClearHistory = () => {
-    stopSpeaking();
-    setSpeakingId(null);
     setMessages(INITIAL_MESSAGES[language]);
     try {
       localStorage.removeItem(`panatag_chat_history_${language}`);
@@ -172,7 +146,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
 
   return (
     <div className="flex flex-col h-[calc(100dvh-57px-64px)] max-w-4xl mx-auto overflow-hidden">
-      {/* Top Emergency Status Bar */}
+      {/* Top Status Bar */}
       <div className={`shrink-0 px-4 py-2 flex items-center justify-between border-b text-xs ${
         blackoutMode 
           ? 'bg-black border-red-950 text-slate-300' 
@@ -181,7 +155,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
         <div className="flex items-center gap-2">
           <span className="w-2 h-2 rounded-full bg-emerald-400" />
           <span className="font-semibold text-emerald-400 text-[11px]">
-            {language === 'fil' ? 'Handang Tumulong • Hindi Kailangan ng Internet' : language === 'ceb' ? 'Andam Motabang • Walay Internet Gikinahanglan' : 'Ready to Assist • No Internet Needed'}
+            {language === 'fil' ? 'Handang Tumulong • 100% Offline (Walang Internet)' : language === 'ceb' ? 'Andam Motabang • Walay Internet Gikinahanglan' : 'Ready to Assist • 100% Offline'}
           </span>
         </div>
         <button
@@ -227,49 +201,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
               <div className="text-xs sm:text-sm leading-relaxed whitespace-pre-wrap font-sans">
                 {msg.text}
               </div>
-
-              {/* Audio playback and copy buttons */}
-              {msg.sender === 'panatag' && (
-                <div className="mt-3 pt-2 border-t border-slate-700/50 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <button
-                      onClick={() => handleSpeak(msg)}
-                      className="p-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center gap-1 text-[11px]"
-                      title="Pakinggan nang offline"
-                    >
-                      {speakingId === msg.id ? (
-                        <>
-                          <VolumeX className="w-3.5 h-3.5 text-amber-400 animate-pulse" />
-                          <span className="text-[10px] text-amber-300">Ihinto</span>
-                        </>
-                      ) : (
-                        <>
-                          <Volume2 className="w-3.5 h-3.5 text-cyan-400" />
-                          <span className="text-[10px]">Pakinggan</span>
-                        </>
-                      )}
-                    </button>
-
-                    <button
-                      onClick={() => handleCopy(msg)}
-                      className="p-1.5 rounded-lg bg-slate-700/60 hover:bg-slate-700 text-slate-300 hover:text-white transition-colors flex items-center gap-1 text-[11px]"
-                      title="Kopyahin"
-                    >
-                      {copiedId === msg.id ? (
-                        <>
-                          <Check className="w-3.5 h-3.5 text-emerald-400" />
-                          <span className="text-[10px] text-emerald-300">Na-kopya</span>
-                        </>
-                      ) : (
-                        <>
-                          <Copy className="w-3.5 h-3.5 text-slate-400" />
-                          <span className="text-[10px]">Kopyahin</span>
-                        </>
-                      )}
-                    </button>
-                  </div>
-                </div>
-              )}
             </div>
 
             {/* Quick Action Chips */}
@@ -321,7 +252,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 language === 'fil'
-                  ? 'I-type dito ang iyong tanong (hal. Signal 3, Lindol, First Aid, Baha)...'
+                  ? 'I-type dito ang iyong tanong (hal. Signal 3, Lindol, Baha, First Aid)...'
                   : language === 'ceb'
                   ? 'I-type dinhi ang imong pangutana (hal. Signal 3, Linog, First Aid)...'
                   : 'Type your emergency question here (e.g., Signal 3, Earthquake, First Aid)...'
