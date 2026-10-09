@@ -13,29 +13,41 @@ export interface DownloadProgress {
   progress?: number;
   loaded?: number;
   total?: number;
+  loadedMB?: string;
+  totalMB?: string;
 }
 
-// Lightweight models optimized for in-browser client execution on mobile and desktop
+// User-specified models from HuggingFace
 export const AVAILABLE_MODELS = [
   {
-    id: 'HuggingFaceTB/SmolLM2-135M-Instruct',
-    name: 'SmolLM2 135M Instruct (Ultra Fast - ~90 MB)',
-    description: 'Pinakamabilis sa cellphone; mababang konsumo ng baterya at RAM.',
-    size: '~90 MB',
-    recommendedFor: 'Mobile Phones & Low RAM'
+    id: 'litert-community/gemma-4-E2B-it-litert-lm',
+    name: 'Google Gemma 4 E2B IT (LiteRT-LM) - 2.58 GB',
+    description: 'Ang opisyal na 2.58 GB Google AI Edge Gemma 4 model mula sa Hugging Face link mo.',
+    size: '2.58 GB',
+    url: 'https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm',
+    recommendedFor: 'Full Intelligence (Laptops / High-End Phones)'
   },
   {
     id: 'onnx-community/Qwen2.5-0.5B-Instruct',
-    name: 'Qwen 2.5 0.5B Instruct (Smart & Compact - ~350 MB)',
-    description: 'Mas matalino sa pagsusuri ng komplikadong emergency scenarios.',
+    name: 'Qwen 2.5 0.5B Instruct - ~350 MB',
+    description: 'Mabilis na on-device LLM na may malalim na medical at disaster reasoning.',
     size: '~350 MB',
-    recommendedFor: 'Laptops & Modern Smartphones'
+    url: 'https://huggingface.co/onnx-community/Qwen2.5-0.5B-Instruct',
+    recommendedFor: 'Mid-Range Smartphones'
+  },
+  {
+    id: 'HuggingFaceTB/SmolLM2-135M-Instruct',
+    name: 'SmolLM2 135M Instruct - ~90 MB',
+    description: 'Pinakamabilis na i-download sa mahinang signal; mababang RAM.',
+    size: '~90 MB',
+    url: 'https://huggingface.co/HuggingFaceTB/SmolLM2-135M-Instruct',
+    recommendedFor: 'Quick Download & Low RAM'
   }
 ];
 
 class LocalModelService {
   private generator: any = null;
-  private currentModelId: string = 'HuggingFaceTB/SmolLM2-135M-Instruct';
+  private currentModelId: string = 'litert-community/gemma-4-E2B-it-litert-lm';
   private status: ModelStatus = 'not_downloaded';
   private progress: DownloadProgress = { status: '' };
   private listeners: Array<() => void> = [];
@@ -97,7 +109,7 @@ class LocalModelService {
   }
 
   /**
-   * Downloads and initializes the local model into browser cache/IndexedDB
+   * Downloads model weights from Hugging Face directly into device storage
    */
   public async loadModel(modelId?: string): Promise<boolean> {
     if (modelId) {
@@ -109,7 +121,7 @@ class LocalModelService {
     }
 
     this.status = 'downloading';
-    this.progress = { status: 'Sinisimulan ang pag-download...' };
+    this.progress = { status: 'Kumokonekta sa Hugging Face...' };
     this.notify();
 
     try {
@@ -120,13 +132,18 @@ class LocalModelService {
         dtype: dtype as any,
         device: device as any,
         progress_callback: (p: any) => {
+          const loadedMB = p.loaded ? (p.loaded / (1024 * 1024)).toFixed(1) : undefined;
+          const totalMB = p.total ? (p.total / (1024 * 1024)).toFixed(1) : undefined;
+
           this.progress = {
-            status: p.status || 'Nagda-download...',
+            status: p.status || 'Nagda-download ng weights...',
             name: p.name,
             file: p.file,
             progress: typeof p.progress === 'number' ? Math.round(p.progress) : undefined,
             loaded: p.loaded,
-            total: p.total
+            total: p.total,
+            loadedMB: loadedMB ? `${loadedMB} MB` : undefined,
+            totalMB: totalMB ? `${totalMB} MB` : undefined
           };
           this.notify();
         }
@@ -141,9 +158,9 @@ class LocalModelService {
       this.notify();
       return true;
     } catch (err: any) {
-      console.warn('WebGPU/ONNX pipeline load error, retrying with WASM:', err);
-      // Fallback to WASM/q4 if WebGPU failed
+      console.warn('Initial download/load attempt failed, trying fallback runner:', err);
       try {
+        // Fallback to WASM
         this.generator = await pipeline('text-generation', this.currentModelId, {
           dtype: 'q4' as any,
           device: 'wasm' as any,
@@ -160,9 +177,11 @@ class LocalModelService {
         this.notify();
         return true;
       } catch (fallbackErr: any) {
-        console.error('Local model initialization failed:', fallbackErr);
+        console.error('Model download error:', fallbackErr);
         this.status = 'error';
-        this.progress = { status: 'Error sa pag-download: ' + (fallbackErr.message || 'Network / Memory issue') };
+        this.progress = { 
+          status: 'Hindi natapos ang download: ' + (fallbackErr.message || 'Kulang sa RAM / storage') 
+        };
         this.notify();
         return false;
       }
@@ -177,11 +196,10 @@ class LocalModelService {
       throw new Error('Local model is not yet loaded.');
     }
 
-    // System instruction calibrated for Philippine disasters
     const messages = [
       {
         role: 'system',
-        content: `You are Panatag, an offline Philippine disaster buddy and emergency safety assistant. You provide concise, life-saving advice in Filipino (Tagalog) or English for typhoons, earthquakes, floods, fires, and first aid based on NDRRMC, PAGASA, and Philippine Red Cross protocols.`
+        content: `You are Panatag, a life-saving offline Philippine emergency medical and disaster assistant. Answer urgent trauma and disaster questions in concise, authoritative Filipino or English. If an injury is life-threatening (like severed limbs, severe bleeding, or burns), provide immediate direct medical action without reciting survival checklists.`
       },
       {
         role: 'user',
@@ -201,8 +219,8 @@ class LocalModelService {
       : undefined;
 
     const output = await this.generator(messages, {
-      max_new_tokens: 256,
-      temperature: 0.3,
+      max_new_tokens: 300,
+      temperature: 0.2,
       streamer
     });
 

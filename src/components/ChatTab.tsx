@@ -9,7 +9,8 @@ import {
   ChevronDown, 
   ChevronUp, 
   Zap, 
-  AlertCircle 
+  ExternalLink,
+  FolderOpen
 } from 'lucide-react';
 import { ChatMessage, Language } from '../types';
 import { queryPanatagAI } from '../services/panatagAiEngine';
@@ -30,18 +31,17 @@ const INITIAL_MESSAGES: Record<Language, ChatMessage[]> = {
     {
       id: 'init-1',
       sender: 'panatag',
-      text: `👋 **Kumusta! Ako si Panatag**, ang iyong offline Philippine Disaster Buddy.\n\nTumatakbo ako nang direkta sa iyong device nang walang internet. Maaari kang mag-type agad ng tanong, o i-download ang Local AI Model sa itaas upang direktang magpatakbo ng neural LLM sa iyong telepono o computer.`,
+      text: `👋 **Kumusta! Ako si Panatag**, ang iyong offline Philippine Disaster & Trauma Emergency Buddy.\n\nTumatakbo ako 100% offline sa iyong device. Naiintindihan ko ang mga kritikal na pinsala (tulad ng naputol na daliri/kamay, malakas na pagdurugo, paso), pati na ang mga bagyo, lindol, at baha.\n\nMaaari mo ring i-download ang 2.58 GB Google Gemma 4 LiteRT-LM model sa ibaba upang tumakbo sa iyong device.`,
       timestamp: Date.now(),
       offlineGenerated: true,
       suggestedActions: [
+        'Naputol ang daliri o kamay',
+        'Sinaksak / may nakatarak na kutsilyo',
+        'Nabagok ang ulo',
         'Signal #3 ano ang dapat gawin?',
         'May lindol: Duck, Cover, and Hold',
-        'Ano ang laman ng 72-Hour Go-Bag?',
         'Baha at Leptospirosis (Doxycycline)',
-        'Kagat ng aso (Rabies First Aid)',
-        'Sunog sa mantika (Bawal ang tubig)',
-        'Emergency Hotlines sa Pilipinas',
-        'Paano i-deploy sa Cloudflare Pages?'
+        'Kagat ng aso (Rabies First Aid)'
       ]
     }
   ],
@@ -49,16 +49,16 @@ const INITIAL_MESSAGES: Record<Language, ChatMessage[]> = {
     {
       id: 'init-1',
       sender: 'panatag',
-      text: `👋 **Hello! I am Panatag**, your offline Philippine Disaster Buddy.\n\nI run directly on your device without internet. You can ask emergency questions right away, or download the Local AI Model above to run a neural LLM directly on your phone or computer.`,
+      text: `👋 **Hello! I am Panatag**, your offline Philippine Disaster & Emergency Medical Buddy.\n\nI run 100% offline on your device. I understand critical trauma emergencies (severed fingers/limbs, massive arterial hemorrhage, stab wounds) as well as typhoons, earthquakes, and flood safety.\n\nYou can also download the 2.58 GB Google Gemma 4 LiteRT-LM model above.`,
       timestamp: Date.now(),
       offlineGenerated: true,
       suggestedActions: [
+        'Severed finger or hand protocol',
+        'Stab wound / impaled object',
+        'Severe head trauma',
         'Typhoon Signal #3 protocols',
         'Earthquake Duck Cover and Hold',
-        'What goes inside a 72-hr Go-Bag?',
-        'How to stop severe bleeding',
-        'Philippine Emergency Hotlines',
-        'How to deploy to Cloudflare Pages?'
+        'Flood & Leptospirosis rules'
       ]
     }
   ],
@@ -66,15 +66,14 @@ const INITIAL_MESSAGES: Record<Language, ChatMessage[]> = {
     {
       id: 'init-1',
       sender: 'panatag',
-      text: `👋 **Maayong adlaw! Ako si Panatag**, imong offline Philippine Disaster Buddy.\n\nNagdagan ko direkta sa imong device nga walay internet. Pwede ka mangutana dayon o i-download ang Local AI Model sa ibabaw para magdagan ang neural LLM sa imong cellphone o computer.`,
+      text: `👋 **Maayong adlaw! Ako si Panatag**, imong offline Philippine Emergency Medical & Disaster Buddy.\n\nNakasabot ko sa grabeng disgrasya (naputol nga tudlo/kamot, kusog nga pagdugo), ug sa bagyo, linog, ug baha.\n\nI-type ang imong pangutana sa ubos o i-download ang 2.58 GB Gemma model sa ibabaw.`,
       timestamp: Date.now(),
       offlineGenerated: true,
       suggestedActions: [
+        'Naputol ang tudlo o kamot',
+        'Kusog nga pagdugo first aid',
         'Signal #3 unsaon pag-andam?',
-        'Linog: Duck, Cover, and Hold',
-        'Unsay sulod sa Go-Bag?',
-        'First aid sa pagdugo',
-        'Emergency hotlines sa Pilipinas'
+        'Linog: Duck, Cover, and Hold'
       ]
     }
   ]
@@ -102,6 +101,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
 
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Subscribe to local model updates
   useEffect(() => {
@@ -164,7 +164,6 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
           );
         });
 
-        // If generation output was blank or short, ensure final content
         if (!streamText) {
           const fallbackResp = await queryPanatagAI(textToSend, language);
           setMessages((prev) =>
@@ -197,7 +196,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
         setIsTyping(false);
       }
     } else {
-      // Use instant zero-download Panatag engine
+      // Use instant Panatag specialized engine
       try {
         const response = await queryPanatagAI(textToSend, language);
         setTimeout(() => {
@@ -214,7 +213,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
 
           setMessages((prev) => [...prev, botMessage]);
           setIsTyping(false);
-        }, 150);
+        }, 120);
       } catch (err) {
         console.error(err);
         setIsTyping(false);
@@ -243,12 +242,14 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
           {modelStatus === 'ready' ? (
             <span className="flex items-center gap-1.5 font-bold text-emerald-400 text-[11px]">
               <CheckCircle2 className="w-3.5 h-3.5" />
-              <span>Local AI Model Active ({localModelService.isUsingWebGPU() ? 'WebGPU' : 'WASM'})</span>
+              <span>Gemma / Local AI Active ({localModelService.isUsingWebGPU() ? 'WebGPU' : 'WASM'})</span>
             </span>
           ) : modelStatus === 'downloading' ? (
             <span className="flex items-center gap-1.5 font-bold text-amber-400 text-[11px] animate-pulse">
               <Download className="w-3.5 h-3.5" />
-              <span>Nagda-download ng Model: {modelProgress.progress ? `${modelProgress.progress}%` : 'Inihahanda...'}</span>
+              <span>
+                Nagda-download ng Gemma ({modelProgress.loadedMB ? `${modelProgress.loadedMB} / ${modelProgress.totalMB || '2.58 GB'}` : (modelProgress.progress ? `${modelProgress.progress}%` : 'Inihahanda...')}):
+              </span>
             </span>
           ) : (
             <button
@@ -256,7 +257,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
               className="flex items-center gap-1.5 font-semibold text-cyan-400 hover:text-cyan-300 text-[11px] transition-colors"
             >
               <Download className="w-3.5 h-3.5" />
-              <span>I-download ang Local AI sa Phone/PC</span>
+              <span>I-download ang 2.58 GB Gemma Model sa Device</span>
               {showModelDownloader ? <ChevronUp className="w-3 h-3" /> : <ChevronDown className="w-3 h-3" />}
             </button>
           )}
@@ -285,20 +286,20 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
 
       {/* Model Downloader Accordion Card */}
       {showModelDownloader && (
-        <div className="shrink-0 p-4 bg-slate-900/95 border-b border-slate-800 text-xs text-slate-200 space-y-3 animate-fade-in shadow-xl">
+        <div className="shrink-0 p-4 bg-slate-900/95 border-b border-slate-800 text-xs text-slate-200 space-y-3 animate-fade-in shadow-xl max-h-[50vh] overflow-y-auto">
           <div className="flex items-start justify-between gap-3">
             <div>
               <h3 className="font-bold text-white text-sm flex items-center gap-1.5">
                 <Cpu className="w-4 h-4 text-cyan-400" />
-                Local On-Device AI Model Runner (Browser IndexedDB)
+                Google Gemma 4 LiteRT-LM & On-Device Models
               </h3>
               <p className="text-[11px] text-slate-400 mt-0.5 leading-relaxed">
-                I-download ang AI model weights nang minsan lamang. Maiimbak ito sa browser cache ng iyong cellphone o laptop para tumakbo nang 100% offline nang walang koneksyon sa server o internet.
+                I-download ang 2.58 GB model weights mula sa Hugging Face link mo (<a href="https://huggingface.co/litert-community/gemma-4-E2B-it-litert-lm" target="_blank" rel="noreferrer" className="text-cyan-400 underline inline-flex items-center gap-0.5">litert-community/gemma-4-E2B-it-litert-lm <ExternalLink className="w-2.5 h-2.5" /></a>) upang direktang magpatakbo ng neural generative AI sa iyong telepono o computer kahit walang internet.
               </p>
             </div>
             <button
               onClick={() => setShowModelDownloader(false)}
-              className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded bg-slate-800"
+              className="text-slate-400 hover:text-white text-xs px-2 py-1 rounded bg-slate-800 shrink-0"
             >
               Isara
             </button>
@@ -307,21 +308,22 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
           {/* Model Selector */}
           <div className="space-y-1.5">
             <label className="text-[11px] font-bold text-slate-300 block">Pumili ng Model:</label>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+            <div className="grid grid-cols-1 gap-2">
               {AVAILABLE_MODELS.map((m) => (
                 <div
                   key={m.id}
                   onClick={() => setSelectedModel(m.id)}
-                  className={`p-2.5 rounded-xl border cursor-pointer transition-all ${
+                  className={`p-3 rounded-xl border cursor-pointer transition-all ${
                     selectedModel === m.id
-                      ? 'bg-cyan-950/40 border-cyan-500 text-white shadow-sm'
+                      ? 'bg-cyan-950/40 border-cyan-500 text-white shadow-sm ring-1 ring-cyan-500/30'
                       : 'bg-slate-800/60 border-slate-700 text-slate-300 hover:border-slate-600'
                   }`}
                 >
                   <div className="flex items-center justify-between font-bold text-xs">
-                    <span>{m.name}</span>
+                    <span className="text-cyan-300">{m.name}</span>
+                    <span className="px-1.5 py-0.5 rounded bg-slate-900 text-slate-300 font-mono text-[10px]">{m.size}</span>
                   </div>
-                  <p className="text-[10px] text-slate-400 mt-0.5">{m.description}</p>
+                  <p className="text-[11px] text-slate-400 mt-1">{m.description}</p>
                 </div>
               ))}
             </div>
@@ -335,38 +337,40 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
                   <Download className="w-3.5 h-3.5 animate-bounce" />
                   {modelProgress.status || 'Nagda-download ng model weights...'}
                 </span>
-                <span className="text-cyan-400">
-                  {modelProgress.progress ? `${modelProgress.progress}%` : 'Inihahanda...'}
+                <span className="text-cyan-400 font-mono">
+                  {modelProgress.loadedMB ? `${modelProgress.loadedMB} / ${modelProgress.totalMB || '2.58 GB'}` : (modelProgress.progress ? `${modelProgress.progress}%` : 'Inihahanda...')}
                 </span>
               </div>
               <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
                 <div
                   className="h-full bg-gradient-to-r from-cyan-500 to-emerald-400 transition-all duration-300 rounded-full"
-                  style={{ width: `${modelProgress.progress || 10}%` }}
+                  style={{ width: `${modelProgress.progress || 15}%` }}
                 />
               </div>
               <p className="text-[10px] text-slate-500">
-                File: {modelProgress.file || 'model.onnx'} • Sine-save sa local IndexedDB ng device
+                File: {modelProgress.file || 'gemma-4-E2B-it.litertlm'} • Naka-cache sa IndexedDB ng iyong device
               </p>
             </div>
           )}
 
-          {/* Action Button */}
+          {/* Action Button & Local File Loader */}
           {modelStatus !== 'downloading' && modelStatus !== 'ready' && (
-            <button
-              onClick={handleDownloadModel}
-              className="w-full py-2.5 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/40 transition-all active:scale-98"
-            >
-              <Download className="w-4 h-4" />
-              I-download ang Local AI sa Phone/PC Ngayon
-            </button>
+            <div className="space-y-2">
+              <button
+                onClick={handleDownloadModel}
+                className="w-full py-3 rounded-xl bg-cyan-600 hover:bg-cyan-500 text-white font-bold text-xs flex items-center justify-center gap-2 shadow-lg shadow-cyan-900/40 transition-all active:scale-98"
+              >
+                <Download className="w-4 h-4" />
+                I-download ang {AVAILABLE_MODELS.find(m => m.id === selectedModel)?.size || 'Model'} sa Device
+              </button>
+            </div>
           )}
 
           {modelStatus === 'ready' && (
-            <div className="p-2.5 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 flex items-center justify-between text-xs font-bold">
+            <div className="p-3 rounded-xl bg-emerald-950/40 border border-emerald-800/60 text-emerald-300 flex items-center justify-between text-xs font-bold">
               <span className="flex items-center gap-1.5">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                Naka-cache na sa device! Tumatakbo nang 100% Offline via {localModelService.isUsingWebGPU() ? 'WebGPU' : 'WASM'}.
+                Naka-cache na ang model sa iyong device! Tumatakbo 100% offline via {localModelService.isUsingWebGPU() ? 'WebGPU Acceleration' : 'WASM CPU'}.
               </span>
             </div>
           )}
@@ -387,7 +391,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
                   : blackoutMode
                   ? 'bg-zinc-950 border border-red-900 text-slate-100 rounded-bl-none'
                   : 'bg-slate-800/90 border border-slate-700/80 text-slate-100 rounded-bl-none'
-              } ${msg.isEmergencyAlert ? 'ring-1 ring-amber-500/50' : ''}`}
+              } ${msg.isEmergencyAlert ? 'ring-2 ring-red-500' : ''}`}
             >
               {/* Message Header */}
               {msg.sender === 'panatag' && (
@@ -399,7 +403,7 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
                   <div className="flex items-center gap-1 text-[10px] text-slate-400">
                     {modelStatus === 'ready' && (
                       <span className="text-cyan-400 font-semibold flex items-center gap-0.5">
-                        <Zap className="w-3 h-3" /> On-Device LLM
+                        <Zap className="w-3 h-3" /> Gemma LLM
                       </span>
                     )}
                     <span>{new Date(msg.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}</span>
@@ -462,10 +466,10 @@ export const ChatTab: React.FC<ChatTabProps> = ({ language, blackoutMode }) => {
               onChange={(e) => setInput(e.target.value)}
               placeholder={
                 language === 'fil'
-                  ? 'I-type dito ang iyong tanong (hal. Signal 3, Lindol, Baha, First Aid)...'
+                  ? 'I-type dito ang tanong (hal. Naputol ang daliri, Sinaksak, Signal 3, Baha)...'
                   : language === 'ceb'
-                  ? 'I-type dinhi ang imong pangutana (hal. Signal 3, Linog, First Aid)...'
-                  : 'Type your emergency question here (e.g., Signal 3, Earthquake, First Aid)...'
+                  ? 'I-type dinhi ang pangutana (hal. Naputol ang tudlo, Linog, First Aid)...'
+                  : 'Type your emergency question (e.g. Severed finger, Bleeding, Signal 3)...'
               }
               className="w-full px-4 py-3 rounded-xl bg-slate-800 border-2 border-slate-700 text-sm text-white placeholder-slate-400 focus:outline-none focus:border-red-500 focus:ring-1 focus:ring-red-500 transition-all"
             />
