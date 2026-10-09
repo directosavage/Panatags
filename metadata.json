@@ -1,0 +1,6 @@
+{
+  "name": "Panatag - Offline PH Disaster AI",
+  "description": "Panatag: Your offline Philippine disaster buddy and emergency AI chatbot. Access vital safety advice, hotlines, Go-Bag checklists, and emergency guides without internet.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
